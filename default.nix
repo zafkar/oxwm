@@ -2,7 +2,9 @@
   lib,
   rustPlatform,
   pkg-config,
-  xorg,
+  libX11,
+  libXft,
+  libXrender,
   freetype,
   fontconfig,
   gitRev ? "unkown",
@@ -13,22 +15,19 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   src = ./.;
 
-  cargoLock = {
-    lockFile = ./Cargo.lock;
-  };
+  cargoLock.lockFile = ./Cargo.lock;
 
-  nativeBuildInputs = [
-    pkg-config
-  ];
+  nativeBuildInputs = [pkg-config];
 
   buildInputs = [
-    xorg.libX11
-    xorg.libXft
-    xorg.libXrender
+    libX11
+    libXft
+    libXrender
     freetype
     fontconfig
   ];
 
+  # tests require a running X server
   doCheck = false;
 
   postInstall = ''
@@ -39,11 +38,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   passthru.providedSessions = ["oxwm"];
 
-  meta = with lib; {
-    description = "A dynamic window manager written in Rust, inspired by dwm";
+  meta = {
+    description = "Dynamic window manager written in Rust, inspired by dwm";
     homepage = "https://github.com/tonybanters/oxwm";
-    license = licenses.gpl3;
-    platforms = platforms.linux;
+    license = lib.licenses.gpl3Only;
+    platforms = lib.platforms.linux;
     mainProgram = "oxwm";
   };
 })

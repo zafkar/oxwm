@@ -813,38 +813,40 @@ impl WindowManager {
             }
             KeyAction::ViewNextTag => {
                 let monitor = self.get_selected_monitor();
-                let current_tag_mask = monitor.get_selected_tag();
-
-                let current_tag_index = unmask_tag(current_tag_mask);
-                self.view_tag(current_tag_index.saturating_add(1))?;
+                let current_tag_index = unmask_tag(monitor.get_selected_tag()) as i32;
+                let len = self.config.tags.len() as i32;
+                self.view_tag((current_tag_index + 1).rem_euclid(len) as usize)?;
             }
             KeyAction::ViewPreviousTag => {
                 let monitor = self.get_selected_monitor();
-                let current_tag_mask = monitor.get_selected_tag();
-
-                let current_tag_index = unmask_tag(current_tag_mask);
-                self.view_tag(current_tag_index.saturating_sub(1))?;
+                let current_tag_index = unmask_tag(monitor.get_selected_tag()) as i32;
+                let len = self.config.tags.len() as i32;
+                self.view_tag((current_tag_index - 1).rem_euclid(len) as usize)?;
             }
             KeyAction::ViewNextNonEmptyTag => {
                 let monitor = self.get_selected_monitor();
-                let current_tag_mask = monitor.get_selected_tag();
-                let current_tag_index = unmask_tag(current_tag_mask);
+                let current = unmask_tag(monitor.get_selected_tag()) as i32;
+                let len = self.config.tags.len() as i32;
+                let mon_num = monitor.monitor_number;
 
-                for next_tag_index in (current_tag_index + 1)..self.config.tags.len() {
-                    if self.has_windows_on_tag(monitor.monitor_number, next_tag_index) {
-                        self.view_tag(next_tag_index)?;
+                for offset in 1..len {
+                    let next = (current + offset).rem_euclid(len) as usize;
+                    if self.has_windows_on_tag(mon_num, next) {
+                        self.view_tag(next)?;
                         break;
                     }
                 }
             }
             KeyAction::ViewPreviousNonEmptyTag => {
                 let monitor = self.get_selected_monitor();
-                let current_tag_mask = monitor.get_selected_tag();
-                let current_tag_index = unmask_tag(current_tag_mask);
+                let current = unmask_tag(monitor.get_selected_tag()) as i32;
+                let len = self.config.tags.len() as i32;
+                let mon_num = monitor.monitor_number;
 
-                for prev_tag_index in (0..current_tag_index).rev() {
-                    if self.has_windows_on_tag(monitor.monitor_number, prev_tag_index) {
-                        self.view_tag(prev_tag_index)?;
+                for offset in 1..len {
+                    let prev = (current - offset).rem_euclid(len) as usize;
+                    if self.has_windows_on_tag(mon_num, prev) {
+                        self.view_tag(prev)?;
                         break;
                     }
                 }

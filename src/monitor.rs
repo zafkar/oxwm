@@ -102,7 +102,7 @@ pub fn detect_monitors(
         .xinerama_is_active()
         .ok()
         .and_then(|cookie| cookie.reply().ok())
-        .map_or(false, |reply| reply.state != 0);
+        .is_some_and(|reply| reply.state != 0);
 
     if xinerama_active {
         let Ok(xinerama_cookie) = connection.xinerama_query_screens() else {

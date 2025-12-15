@@ -43,15 +43,15 @@ impl WindowRule {
         let class_matches = self
             .class
             .as_ref()
-            .map_or(true, |c| class.contains(c.as_str()));
+            .is_none_or(|c| class.contains(c.as_str()));
         let instance_matches = self
             .instance
             .as_ref()
-            .map_or(true, |i| instance.contains(i.as_str()));
+            .is_none_or(|i| instance.contains(i.as_str()));
         let title_matches = self
             .title
             .as_ref()
-            .map_or(true, |t| title.contains(t.as_str()));
+            .is_none_or(|t| title.contains(t.as_str()));
         class_matches && instance_matches && title_matches
     }
 }

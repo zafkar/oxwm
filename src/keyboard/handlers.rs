@@ -146,10 +146,10 @@ impl KeyboardMapping {
     ) -> Option<Keycode> {
         for keycode in min_keycode..=max_keycode {
             let index = (keycode - self.min_keycode) as usize * self.keysyms_per_keycode as usize;
-            if let Some(&sym) = self.syms.get(index) {
-                if sym == keysym {
-                    return Some(keycode);
-                }
+            if let Some(&sym) = self.syms.get(index)
+                && sym == keysym
+            {
+                return Some(keycode);
             }
         }
         None
@@ -218,19 +218,18 @@ pub fn grab_keys(
         }
     }
 
-    if current_key > 0 {
-        if let Some(escape_keycode) =
+    if current_key > 0
+        && let Some(escape_keycode) =
             mapping.find_keycode(keysyms::XK_ESCAPE, min_keycode, max_keycode)
-        {
-            connection.grab_key(
-                true,
-                root,
-                ModMask::ANY,
-                escape_keycode,
-                GrabMode::ASYNC,
-                GrabMode::ASYNC,
-            )?;
-        }
+    {
+        connection.grab_key(
+            true,
+            root,
+            ModMask::ANY,
+            escape_keycode,
+            GrabMode::ASYNC,
+            GrabMode::ASYNC,
+        )?;
     }
 
     connection.flush()?;

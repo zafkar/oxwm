@@ -168,12 +168,12 @@ impl KeybindOverlay {
                 .filter(|kb| kb.func == action)
                 .min_by_key(|kb| kb.keys.len());
 
-            if let Some(binding) = binding {
-                if !binding.keys.is_empty() {
-                    let key_str = self.format_key_combo(&binding.keys[0]);
-                    let action_str = self.action_description(binding);
-                    result.push((key_str, action_str));
-                }
+            if let Some(binding) = binding
+                && !binding.keys.is_empty()
+            {
+                let key_str = self.format_key_combo(&binding.keys[0]);
+                let action_str = self.action_description(binding);
+                result.push((key_str, action_str));
             }
         }
 

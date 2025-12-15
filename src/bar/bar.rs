@@ -158,11 +158,9 @@ impl Bar {
         for (i, block) in self.blocks.iter_mut().enumerate() {
             let elapsed = now.duration_since(self.block_last_updates[i]);
 
-            if elapsed >= block.interval() {
-                if block.content().is_ok() {
-                    self.block_last_updates[i] = now;
-                    changed = true;
-                }
+            if elapsed >= block.interval() && block.content().is_ok() {
+                self.block_last_updates[i] = now;
+                changed = true;
             }
         }
 

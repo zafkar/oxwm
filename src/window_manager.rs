@@ -346,11 +346,10 @@ impl WindowManager {
     }
 
     fn try_reload_config(&mut self) -> Result<(), String> {
-        let lua_path = self
-            .config
-            .path
-            .take()
-            .expect("Could not find config file. Config path should've been set while loading");
+        let lua_path =
+            self.config.path.take().ok_or(
+                "Could not find config file. Config path should've been set while loading",
+            )?;
 
         if !lua_path.exists() {
             return Err("Could not find config file, has it been moved?".to_string());

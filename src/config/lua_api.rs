@@ -499,11 +499,24 @@ fn register_bar_module(
         create_block_config(lua, config, "Battery", Some(Value::Table(formats_table)))
     })?;
 
+    let button_block = lua.create_function(|lua, config: Table| {
+        let command: String = config.get("command").map_err(|_| {
+            mlua::Error::RuntimeError("oxwm.bar.block.button: 'command' field is required".into())
+        })?;
+        create_block_config(
+            lua,
+            config,
+            "Button",
+            Some(Value::String(lua.create_string(&command)?)),
+        )
+    })?;
+
     block_table.set("ram", ram)?;
     block_table.set("datetime", datetime)?;
     block_table.set("shell", shell)?;
     block_table.set("static", static_block)?;
     block_table.set("battery", battery)?;
+    block_table.set("button", button_block)?;
 
     // Deprecated add_block() function for backwards compatibility
     // This allows old configs to still work, but users should migrate to set_blocks()
@@ -541,6 +554,11 @@ fn register_bar_module(
             "Battery" => {
                 return Err(mlua::Error::RuntimeError(
                     "Battery block is not supported with add_block(). Please use oxwm.bar.set_blocks() with oxwm.bar.block.battery()".into()
+                ));
+            }
+            "Button" => {
+                return Err(mlua::Error::RuntimeError(
+                    "Button block is not supported with add_block(). Please use oxwm.bar.set_blocks() with oxwm.bar.block.button()".into()
                 ));
             }
             _ => return Err(mlua::Error::RuntimeError(format!("Unknown block type '{}'", block_type))),
@@ -640,6 +658,21 @@ fn register_bar_module(
                         format_full: full,
                         battery_name,
                     }
+                }
+                "Button" => {
+                    let command = arg
+                        .and_then(|v| {
+                            if let Value::String(s) = v {
+                                s.to_str().ok().map(|s| s.to_string())
+                            } else {
+                                None
+                            }
+                        })
+                        .ok_or_else(|| {
+                            mlua::Error::RuntimeError("Battery block missing formats".into())
+                        })?;
+
+                    BlockCommand::Button(command)
                 }
                 _ => {
                     return Err(mlua::Error::RuntimeError(format!(

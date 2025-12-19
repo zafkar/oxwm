@@ -1,7 +1,8 @@
-use crate::errors::BlockError;
+use crate::{bar::blocks::button::ButtonBlock, errors::BlockError};
 use std::time::Duration;
 
 mod battery;
+mod button;
 mod datetime;
 mod ram;
 mod shell;
@@ -42,6 +43,7 @@ pub enum BlockCommand {
     },
     Ram,
     Static(String),
+    Button(String),
 }
 
 impl BlockConfig {
@@ -81,6 +83,9 @@ impl BlockConfig {
                 &format!("{}{}", self.format, text),
                 self.color,
             )),
+            BlockCommand::Button(command) => {
+                Box::new(ButtonBlock::new(&self.format, self.color, command))
+            }
         }
     }
 }

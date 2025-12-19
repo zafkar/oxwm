@@ -277,7 +277,7 @@ function oxwm.bar.block.ram(config) end
 function oxwm.bar.block.datetime(config) end
 
 ---Create a shell command block
----@param config {format: string, command: string, interval: integer, color: string|integer, underline: boolean} Block configuration
+---@param config {format: string, command: string, onclick_command: string, interval: integer, color: string|integer, underline: boolean} Block configuration
 ---@return table Block configuration
 function oxwm.bar.block.shell(config) end
 

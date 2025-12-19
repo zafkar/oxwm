@@ -212,5 +212,20 @@ oxwm.bar.set_blocks({
         color = colors.cyan,
         underline = true,
         date_format = "%a, %b %d - %-I:%M %P"
+    }),
+    oxwm.bar.block.static({
+        text = " │  ",
+        format = "",
+        interval = 999999999,
+        color = colors.lavender,
+        underline = false
+    }),
+    oxwm.bar.block.shell({
+        command = "bluetoothctl show | awk '/Powered/ {print ($2==\"yes\"?\"on\":\"off\")}'",
+        onclick_command = "bluetoothctl show | awk '/Powered/ {print $2}' | grep -q yes && bluetoothctl power off >/dev/null && echo off || { bluetoothctl power on >/dev/null; dev=$(bluetoothctl info | awk -F': ' '/Name/ {print $2; exit}'); [ -n \"$dev\" ] && echo \"on ($dev)\" || echo on; }",
+        format = "BT {}",
+        interval = 999999999,
+        color = colors.blue,
+        underline = true
     })
 })

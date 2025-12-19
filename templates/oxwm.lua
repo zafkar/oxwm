@@ -299,6 +299,12 @@ function oxwm.bar.block.static(config) end
 ---@return table Block configuration
 function oxwm.bar.block.battery(config) end
 
+---Create a button block
+---In the command {click_x} will be replaced by the x position of the cursor  
+---@param config {format: string, command: string, interval: integer, color: string|integer, underline: boolean} Block configuration
+---@return table Block configuration
+function oxwm.bar.block.button(config) end
+
 ---Set normal tag color scheme (unselected, no windows)
 ---@param foreground string|integer Foreground color
 ---@param background string|integer Background color

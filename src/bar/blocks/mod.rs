@@ -15,6 +15,7 @@ pub trait Block {
     fn content(&mut self) -> Result<String, BlockError>;
     fn interval(&self) -> Duration;
     fn color(&self) -> u32;
+    fn on_click(&mut self, _click_x: i16) {}
 }
 
 #[derive(Debug, Clone)]
@@ -28,7 +29,10 @@ pub struct BlockConfig {
 
 #[derive(Debug, Clone)]
 pub enum BlockCommand {
-    Shell(String),
+    Shell {
+        command: String,
+        onclick_command: Option<String>,
+    },
     DateTime(String),
     Battery {
         format_charging: String,
@@ -43,9 +47,13 @@ pub enum BlockCommand {
 impl BlockConfig {
     pub fn to_block(&self) -> Box<dyn Block> {
         match &self.command {
-            BlockCommand::Shell(cmd) => Box::new(ShellBlock::new(
+            BlockCommand::Shell {
+                command,
+                onclick_command,
+            } => Box::new(ShellBlock::new(
                 &self.format,
-                cmd,
+                command,
+                onclick_command.as_ref(),
                 self.interval_secs,
                 self.color,
             )),

@@ -2932,7 +2932,7 @@ impl WindowManager {
 
                 let is_bar_click = self
                     .bars
-                    .iter()
+                    .iter_mut()
                     .enumerate()
                     .find(|(_, bar)| bar.window() == event.event);
 

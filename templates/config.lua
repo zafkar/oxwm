@@ -93,6 +93,14 @@ local blocks = {
     --     color = colors.green,
     --     underline = true,
     -- }),
+    -- Uncomment to add a poweroff button
+    -- oxwm.bar.block.button({
+    --     format = "POWER",
+    --     command = "shutdown now"
+    --     interval = 999999999,
+    --     color = colors.lavender,
+    --     underline = false,
+    -- }),
 };
 
 -------------------------------------------------------------------------------

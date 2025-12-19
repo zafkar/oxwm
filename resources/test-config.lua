@@ -227,5 +227,12 @@ oxwm.bar.set_blocks({
         interval = 999999999,
         color = colors.blue,
         underline = true
+    }),
+    oxwm.bar.block.button({
+        format = "󰐥",
+        command = "xmessage 'Test button'",
+        interval = 999999999,
+        color = colors.red,
+        underline = false,
     })
 })

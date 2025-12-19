@@ -19,6 +19,7 @@ pub struct Bar {
     needs_redraw: bool,
 
     blocks: Vec<Box<dyn Block>>,
+    blocks_width: Vec<u16>,
     block_last_updates: Vec<Instant>,
     block_underlines: Vec<bool>,
     status_text: String,
@@ -119,6 +120,7 @@ impl Bar {
             .collect();
 
         let block_last_updates = vec![Instant::now(); blocks.len()];
+        let blocks_width = vec![0; blocks.len()];
 
         Ok(Bar {
             window,
@@ -140,6 +142,7 @@ impl Bar {
             hide_vacant_tags: config.hide_vacant_tags,
             last_occupied_tags: 0,
             last_current_tags: 0,
+            blocks_width,
         })
     }
 
@@ -326,6 +329,9 @@ impl Bar {
             for (i, block) in self.blocks.iter_mut().enumerate().rev() {
                 if let Ok(text) = block.content() {
                     let text_width = font.text_width(&text);
+                    if let Some(block_width) = self.blocks_width.get_mut(i) {
+                        *block_width = text_width;
+                    }
                     x_position -= text_width as i16;
 
                     let top_padding = 4;
@@ -401,7 +407,7 @@ impl Bar {
         Ok(())
     }
 
-    pub fn handle_click(&self, click_x: i16) -> Option<usize> {
+    pub fn handle_click(&mut self, click_x: i16) -> Option<usize> {
         let mut current_x_position = 0;
 
         for (tag_index, &tag_width) in self.tag_widths.iter().enumerate() {
@@ -417,6 +423,18 @@ impl Bar {
                 return Some(tag_index);
             }
             current_x_position += tag_width as i16;
+        }
+
+        let padding = 10;
+        current_x_position = self.width as i16 - padding;
+        for (i, &block_width) in self.blocks_width.iter().enumerate().rev() {
+            if click_x >= current_x_position - block_width as i16 && click_x < current_x_position {
+                if let Some(block) = self.blocks.get_mut(i) {
+                    block.on_click(click_x);
+                }
+                return None;
+            }
+            current_x_position -= block_width as i16;
         }
         None
     }

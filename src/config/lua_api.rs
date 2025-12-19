@@ -467,12 +467,13 @@ fn register_bar_module(
         let command: String = config.get("command").map_err(|_| {
             mlua::Error::RuntimeError("oxwm.bar.block.shell: 'command' field is required".into())
         })?;
-        create_block_config(
-            lua,
-            config,
-            "Shell",
-            Some(Value::String(lua.create_string(&command)?)),
-        )
+        let onclick_command: Option<String> = config.get("onclick_command").unwrap_or(None);
+
+        let formats_table = lua.create_table()?;
+        formats_table.set("command", command)?;
+        formats_table.set("onclick_command", onclick_command)?;
+
+        create_block_config(lua, config, "Shell", Some(Value::Table(formats_table)))
     })?;
 
     let static_block = lua.create_function(|lua, config: Table| {
@@ -538,7 +539,7 @@ fn register_bar_module(
                 } else {
                     return Err(mlua::Error::RuntimeError("Shell block requires command string as third argument".into()));
                 };
-                crate::bar::BlockCommand::Shell(cmd_str)
+                crate::bar::BlockCommand::Shell{command : cmd_str, onclick_command : None}
             }
             "Ram" => crate::bar::BlockCommand::Ram,
             "Static" => {
@@ -601,20 +602,19 @@ fn register_bar_module(
                         })?;
                     BlockCommand::DateTime(fmt)
                 }
-                "Shell" => {
-                    let cmd_str = arg
-                        .and_then(|v| {
-                            if let Value::String(s) = v {
-                                s.to_str().ok().map(|s| s.to_string())
-                            } else {
-                                None
-                            }
+                "Shell" => match arg {
+                    Some(Value::Table(table)) => {
+                        let command = table.get("command")?;
+                        let onclick_command = table.get("onclick_command").ok();
+                        Ok(BlockCommand::Shell {
+                            command,
+                            onclick_command,
                         })
-                        .ok_or_else(|| {
-                            mlua::Error::RuntimeError("Shell block missing command".into())
-                        })?;
-                    BlockCommand::Shell(cmd_str)
-                }
+                    }
+                    _ => Err(mlua::Error::RuntimeError(
+                        "Shell block missing command".into(),
+                    )),
+                }?,
                 "Ram" => BlockCommand::Ram,
                 "Static" => {
                     let text = arg

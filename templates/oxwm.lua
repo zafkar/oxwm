@@ -192,9 +192,17 @@ oxwm.layout = {}
 function oxwm.layout.cycle() end
 
 ---Set specific layout
----@param name string Layout name (e.g., "tiling", "normie", "tabbed", "grid", "monocle")
+---@param name string Layout name (e.g., "tiling", "normie", "tabbed", "grid", "monocle", "scrolling")
 ---@return table Action table for keybinding
 function oxwm.layout.set(name) end
+
+---Scroll layout left (for scrolling layout)
+---@return table Action table for keybinding
+function oxwm.layout.scroll_left() end
+
+---Scroll layout right (for scrolling layout)
+---@return table Action table for keybinding
+function oxwm.layout.scroll_right() end
 
 ---Tag/workspace management module
 ---@class oxwm.tag

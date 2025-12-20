@@ -35,6 +35,7 @@ pub struct Monitor {
     pub stack_head: Option<Window>,
     pub bar_window: Option<Window>,
     pub layout_indices: [usize; 2],
+    pub scroll_offset: i32,
 }
 
 impl Monitor {
@@ -67,6 +68,7 @@ impl Monitor {
             stack_head: None,
             bar_window: None,
             layout_indices: [0, 1],
+            scroll_offset: 0,
         }
     }
 

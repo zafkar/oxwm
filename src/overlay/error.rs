@@ -1,6 +1,7 @@
 use super::{Overlay, OverlayBase};
 use crate::bar::font::Font;
 use crate::errors::X11Error;
+use crate::x11::X11Display;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
 use x11rb::rust_connection::RustConnection;
@@ -20,7 +21,7 @@ impl ErrorOverlay {
         connection: &RustConnection,
         screen: &Screen,
         screen_num: usize,
-        display: *mut x11::xlib::Display,
+        display: X11Display,
         _font: &Font,
         _max_width: u16,
     ) -> Result<Self, X11Error> {

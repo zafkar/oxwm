@@ -52,7 +52,7 @@ type WmResult<T> = Result<T, WmError>;
 
 impl WindowManager {
     pub fn new(config: Config) -> WmResult<Self> {
-        let mut x11 = X11::new(&config.font)?;
+        let x11 = X11::new(&config.font)?;
 
         let ignore_modifiers = [
             0,
@@ -131,7 +131,7 @@ impl WindowManager {
             &x11.connection,
             &x11.screen,
             x11.screen_number,
-            x11.display.as_mut(),
+            x11.display,
             &x11.font,
             x11.screen.width_in_pixels,
         )?;
@@ -140,7 +140,7 @@ impl WindowManager {
             &x11.connection,
             &x11.screen,
             x11.screen_number,
-            x11.display.as_mut(),
+            x11.display,
             config.modkey,
         )?;
 

@@ -3,6 +3,7 @@ use crate::bar::font::Font;
 use crate::errors::X11Error;
 use crate::keyboard::KeyAction;
 use crate::keyboard::handlers::{KeyBinding, KeyPress};
+use crate::x11::X11Display;
 use std::time::Instant;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
@@ -30,7 +31,7 @@ impl KeybindOverlay {
         connection: &RustConnection,
         screen: &Screen,
         screen_num: usize,
-        display: *mut x11::xlib::Display,
+        display: X11Display,
         modkey: KeyButMask,
     ) -> Result<Self, X11Error> {
         let base = OverlayBase::new(

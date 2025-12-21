@@ -1,5 +1,6 @@
 use crate::bar::font::{Font, FontDraw};
 use crate::errors::X11Error;
+use crate::x11::X11Display;
 use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
@@ -34,7 +35,7 @@ impl OverlayBase {
         connection: &RustConnection,
         screen: &Screen,
         screen_num: usize,
-        display: *mut x11::xlib::Display,
+        mut display: X11Display,
         width: u16,
         height: u16,
         border_width: u16,
@@ -73,10 +74,15 @@ impl OverlayBase {
 
         connection.flush()?;
 
-        let visual = unsafe { x11::xlib::XDefaultVisual(display, screen_num as i32) };
-        let colormap = unsafe { x11::xlib::XDefaultColormap(display, screen_num as i32) };
+        let visual = unsafe { x11::xlib::XDefaultVisual(display.as_mut(), screen_num as i32) };
+        let colormap = unsafe { x11::xlib::XDefaultColormap(display.as_mut(), screen_num as i32) };
 
-        let font_draw = FontDraw::new(display, window as x11::xlib::Drawable, visual, colormap)?;
+        let font_draw = FontDraw::new(
+            display.as_mut(),
+            window as x11::xlib::Drawable,
+            visual,
+            colormap,
+        )?;
 
         Ok(OverlayBase {
             window,

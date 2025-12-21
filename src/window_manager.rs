@@ -100,7 +100,7 @@ impl WindowManager {
                 &x11.screen,
                 x11.screen_number,
                 &config,
-                x11.display.as_mut(),
+                x11.display,
                 &x11.font,
                 monitor.screen_x as i16,
                 monitor.screen_y as i16,
@@ -555,7 +555,6 @@ impl WindowManager {
                 bar.draw(
                     &self.x11.connection,
                     &self.x11.font,
-                    self.x11.display.as_mut(),
                     monitor.tagset[monitor.selected_tags_index],
                     occupied_tags,
                     urgent_tags,

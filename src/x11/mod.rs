@@ -12,6 +12,7 @@ use x11rb::rust_connection::RustConnection;
 
 pub mod atom;
 
+#[derive(Debug, Copy, Clone)]
 pub struct X11Display(NonNull<Display>);
 
 impl X11Display {

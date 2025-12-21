@@ -95,7 +95,7 @@ impl Bar {
             )
         };
 
-        let font_draw = FontDraw::new(display.as_mut(), pixmap, visual, colormap)?;
+        let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
 
         let horizontal_padding = (font.height() as f32 * 0.4) as u16;
 

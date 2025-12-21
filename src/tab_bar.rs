@@ -83,7 +83,7 @@ impl TabBar {
             )
         };
 
-        let font_draw = FontDraw::new(display.as_mut(), pixmap, visual, colormap)?;
+        let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
 
         Ok(Self {
             window,
@@ -261,7 +261,7 @@ impl TabBar {
 
         let visual = unsafe { x11::xlib::XDefaultVisual(self.display.as_mut(), 0) };
         let colormap = unsafe { x11::xlib::XDefaultColormap(self.display.as_mut(), 0) };
-        self.font_draw = FontDraw::new(self.display.as_mut(), self.pixmap, visual, colormap)?;
+        self.font_draw = FontDraw::new(self.display, self.pixmap, visual, colormap)?;
 
         connection.flush()?;
         Ok(())

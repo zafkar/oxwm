@@ -4,6 +4,7 @@ use x11::xlib::{Colormap, Display, Drawable, Visual};
 use x11::xrender::XRenderColor;
 
 use crate::errors::X11Error;
+use crate::x11::X11Display;
 
 pub struct Font {
     xft_font: *mut XftFont,
@@ -69,12 +70,13 @@ pub struct FontDraw {
 
 impl FontDraw {
     pub fn new(
-        display: *mut Display,
+        mut display: X11Display,
         drawable: Drawable,
         visual: *mut Visual,
         colormap: Colormap,
     ) -> Result<Self, X11Error> {
-        let xft_draw = unsafe { x11::xft::XftDrawCreate(display, drawable, visual, colormap) };
+        let xft_draw =
+            unsafe { x11::xft::XftDrawCreate(display.as_mut(), drawable, visual, colormap) };
 
         if xft_draw.is_null() {
             return Err(X11Error::DrawCreateFailed);

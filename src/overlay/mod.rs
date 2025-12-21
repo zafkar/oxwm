@@ -77,12 +77,7 @@ impl OverlayBase {
         let visual = unsafe { x11::xlib::XDefaultVisual(display.as_mut(), screen_num as i32) };
         let colormap = unsafe { x11::xlib::XDefaultColormap(display.as_mut(), screen_num as i32) };
 
-        let font_draw = FontDraw::new(
-            display.as_mut(),
-            window as x11::xlib::Drawable,
-            visual,
-            colormap,
-        )?;
+        let font_draw = FontDraw::new(display, window as x11::xlib::Drawable, visual, colormap)?;
 
         Ok(OverlayBase {
             window,

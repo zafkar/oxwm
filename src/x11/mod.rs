@@ -1,16 +1,14 @@
 use crate::errors::X11Error;
-use crate::monitor::Monitor;
-use crate::monitor::detect_monitors;
 use crate::x11::atom::AtomCache;
 use std::ptr::NonNull;
 use x11::xlib::Display;
 use x11rb::connection::Connection;
 use x11rb::cursor::Handle as CursorHandle;
-use x11rb::protocol::Event;
 use x11rb::protocol::xproto::*;
 use x11rb::rust_connection::RustConnection;
 
 pub mod atom;
+pub mod xlib_graphic_context;
 
 #[derive(Debug, Copy, Clone)]
 pub struct X11Display(NonNull<Display>);

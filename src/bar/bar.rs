@@ -3,6 +3,7 @@ use super::font::{Font, FontDraw};
 use crate::Config;
 use crate::errors::X11Error;
 use crate::x11::X11Display;
+use crate::x11::xlib_graphic_context::XLibGC;
 use std::time::Instant;
 use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
@@ -203,24 +204,23 @@ impl Bar {
         )?;
         connection.flush()?;
 
+        let mut gc = XLibGC::new(self.display, self.pixmap, 0, None);
+
         unsafe {
-            let gc =
-                x11::xlib::XCreateGC(self.display.as_mut(), self.pixmap, 0, std::ptr::null_mut());
             x11::xlib::XSetForeground(
                 self.display.as_mut(),
-                gc,
+                gc.ptr(),
                 self.scheme_normal.background as u64,
             );
             x11::xlib::XFillRectangle(
                 self.display.as_mut(),
                 self.pixmap,
-                gc,
+                gc.ptr(),
                 0,
                 0,
                 self.width as u32,
                 self.height as u32,
             );
-            x11::xlib::XFreeGC(self.display.as_mut(), gc);
         }
 
         let mut x_position: i16 = 0;
@@ -262,24 +262,22 @@ impl Bar {
                 let underline_width = tag_width - underline_padding;
                 let underline_x = x_position + (underline_padding / 2) as i16;
 
+                let mut gc = XLibGC::new(self.display, self.pixmap, 0, None);
                 unsafe {
-                    let gc = x11::xlib::XCreateGC(
+                    x11::xlib::XSetForeground(
                         self.display.as_mut(),
-                        self.pixmap,
-                        0,
-                        std::ptr::null_mut(),
+                        gc.ptr(),
+                        scheme.underline as u64,
                     );
-                    x11::xlib::XSetForeground(self.display.as_mut(), gc, scheme.underline as u64);
                     x11::xlib::XFillRectangle(
                         self.display.as_mut(),
                         self.pixmap,
-                        gc,
+                        gc.ptr(),
                         underline_x as i32,
                         underline_y as i32,
                         underline_width as u32,
                         underline_height as u32,
                     );
-                    x11::xlib::XFreeGC(self.display.as_mut(), gc);
                 }
             }
 
@@ -345,46 +343,35 @@ impl Bar {
                         let underline_width = text_width + underline_padding;
                         let underline_x = x_position - (underline_padding / 2) as i16;
 
+                        let mut gc = XLibGC::new(self.display, self.pixmap, 0, None);
                         unsafe {
-                            let gc = x11::xlib::XCreateGC(
-                                self.display.as_mut(),
-                                self.pixmap,
-                                0,
-                                std::ptr::null_mut(),
-                            );
                             x11::xlib::XSetForeground(
                                 self.display.as_mut(),
-                                gc,
+                                gc.ptr(),
                                 block.color() as u64,
                             );
                             x11::xlib::XFillRectangle(
                                 self.display.as_mut(),
                                 self.pixmap,
-                                gc,
+                                gc.ptr(),
                                 underline_x as i32,
                                 underline_y as i32,
                                 underline_width as u32,
                                 underline_height as u32,
                             );
-                            x11::xlib::XFreeGC(self.display.as_mut(), gc);
                         }
                     }
                 }
             }
         }
 
+        let mut gc = XLibGC::new(self.display, self.window as x11::xlib::Drawable, 0, None);
         unsafe {
-            let gc = x11::xlib::XCreateGC(
-                self.display.as_mut(),
-                self.window as x11::xlib::Drawable,
-                0,
-                std::ptr::null_mut(),
-            );
             x11::xlib::XCopyArea(
                 self.display.as_mut(),
                 self.pixmap,
                 self.window as x11::xlib::Drawable,
-                gc,
+                gc.ptr(),
                 0,
                 0,
                 self.width as u32,
@@ -392,7 +379,6 @@ impl Bar {
                 0,
                 0,
             );
-            x11::xlib::XFreeGC(self.display.as_mut(), gc);
             x11::xlib::XSync(self.display.as_mut(), 0);
         }
 

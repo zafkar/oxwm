@@ -9,14 +9,10 @@ use crate::layout::{Layout, LayoutBox, LayoutType, layout_from_str, next_layout}
 use crate::monitor::{Monitor, detect_monitors};
 use crate::overlay::{ErrorOverlay, KeybindOverlay, Overlay};
 use crate::x11::X11;
-use crate::x11::atom::AtomCache;
 use std::collections::{HashMap, HashSet};
-use x11rb::cursor::Handle as CursorHandle;
-
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::*;
-use x11rb::rust_connection::RustConnection;
 
 pub fn tag_mask(tag: usize) -> TagMask {
     1 << tag
@@ -116,7 +112,7 @@ impl WindowManager {
                 &x11.connection,
                 &x11.screen,
                 x11.screen_number,
-                x11.display.as_mut(),
+                x11.display,
                 &x11.font,
                 (monitor.screen_x + config.gap_outer_horizontal as i32) as i16,
                 (monitor.screen_y as f32 + bar_height + config.gap_outer_vertical as f32) as i16,

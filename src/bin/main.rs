@@ -86,18 +86,21 @@ fn load_config(
 
     let config_directory = config_path.parent();
 
-    match oxwm::config::parse_lua_config(&config_string, config_directory) {
-        Ok(mut config) => {
-            config.path = Some(config_path);
-            Ok((config, false))
-        }
-        Err(_error) => {
-            let template = include_str!("../../templates/config.lua");
-            let config = oxwm::config::parse_lua_config(template, None)
-                .map_err(|error| format!("Failed to parse default template config: {}", error))?;
-            Ok((config, true))
-        }
-    }
+    let (mut config, had_error) =
+        match oxwm::config::parse_lua_config(&config_string, config_directory) {
+            Ok(config) => (config, false),
+            Err(_error) => {
+                let template = include_str!("../../templates/config.lua");
+                let config = oxwm::config::parse_lua_config(template, None).map_err(|error| {
+                    format!("Failed to parse default template config: {}", error)
+                })?;
+                (config, true)
+            }
+        };
+
+    config.path = Some(config_path);
+
+    Ok((config, had_error))
 }
 
 fn init_config() -> Result<(), Box<dyn std::error::Error>> {

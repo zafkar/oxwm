@@ -191,7 +191,7 @@ impl WindowManager {
 
     fn try_reload_config(&mut self) -> Result<(), String> {
         let lua_path =
-            self.config.path.take().ok_or(
+            self.config.path.as_ref().ok_or(
                 "Could not find config file. Config path should've been set while loading",
             )?;
 
@@ -199,7 +199,7 @@ impl WindowManager {
             return Err("Could not find config file, has it been moved?".to_string());
         }
 
-        let config_str = std::fs::read_to_string(&lua_path)
+        let config_str = std::fs::read_to_string(lua_path)
             .map_err(|e| format!("Failed to read config: {}", e))?;
 
         let config_dir = lua_path.parent();
@@ -207,8 +207,10 @@ impl WindowManager {
         let new_config = crate::config::parse_lua_config(&config_str, config_dir)
             .map_err(|e| format!("{}", e))?;
 
+        let lua_path = self.config.path.take();
+
         self.config = new_config;
-        self.config.path = Some(lua_path);
+        self.config.path = lua_path;
         self.error_message = None;
 
         for bar in &mut self.bars {

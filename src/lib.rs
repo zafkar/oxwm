@@ -12,6 +12,7 @@ pub mod signal;
 pub mod size_hints;
 pub mod tab_bar;
 pub mod window_manager;
+pub mod x11;
 
 pub mod prelude {
     pub use crate::ColorScheme;

@@ -8,6 +8,7 @@ use crate::layout::tiling::TilingLayout;
 use crate::layout::{Layout, LayoutBox, LayoutType, layout_from_str, next_layout};
 use crate::monitor::{Monitor, detect_monitors};
 use crate::overlay::{ErrorOverlay, KeybindOverlay, Overlay};
+use crate::x11::atom::AtomCache;
 use std::collections::{HashMap, HashSet};
 use x11rb::cursor::Handle as CursorHandle;
 
@@ -24,95 +25,6 @@ pub fn tag_mask(tag: usize) -> TagMask {
 pub fn unmask_tag(mask: TagMask) -> usize {
     // mask only has one bit set, so this works.
     mask.trailing_zeros() as usize
-}
-
-struct AtomCache {
-    net_current_desktop: Atom,
-    net_client_info: Atom,
-    wm_state: Atom,
-    wm_protocols: Atom,
-    wm_delete_window: Atom,
-    net_wm_state: Atom,
-    net_wm_state_fullscreen: Atom,
-    net_wm_window_type: Atom,
-    net_wm_window_type_dialog: Atom,
-    wm_name: Atom,
-    net_wm_name: Atom,
-    utf8_string: Atom,
-    net_active_window: Atom,
-}
-
-impl AtomCache {
-    fn new(connection: &RustConnection) -> WmResult<Self> {
-        let net_current_desktop = connection
-            .intern_atom(false, b"_NET_CURRENT_DESKTOP")?
-            .reply()?
-            .atom;
-
-        let net_client_info = connection
-            .intern_atom(false, b"_NET_CLIENT_INFO")?
-            .reply()?
-            .atom;
-
-        let wm_state = connection.intern_atom(false, b"WM_STATE")?.reply()?.atom;
-
-        let wm_protocols = connection
-            .intern_atom(false, b"WM_PROTOCOLS")?
-            .reply()?
-            .atom;
-
-        let wm_delete_window = connection
-            .intern_atom(false, b"WM_DELETE_WINDOW")?
-            .reply()?
-            .atom;
-
-        let net_wm_state = connection
-            .intern_atom(false, b"_NET_WM_STATE")?
-            .reply()?
-            .atom;
-
-        let net_wm_state_fullscreen = connection
-            .intern_atom(false, b"_NET_WM_STATE_FULLSCREEN")?
-            .reply()?
-            .atom;
-
-        let net_wm_window_type = connection
-            .intern_atom(false, b"_NET_WM_WINDOW_TYPE")?
-            .reply()?
-            .atom;
-
-        let net_wm_window_type_dialog = connection
-            .intern_atom(false, b"_NET_WM_WINDOW_TYPE_DIALOG")?
-            .reply()?
-            .atom;
-
-        let wm_name = AtomEnum::WM_NAME.into();
-        let net_wm_name = connection
-            .intern_atom(false, b"_NET_WM_NAME")?
-            .reply()?
-            .atom;
-        let utf8_string = connection.intern_atom(false, b"UTF8_STRING")?.reply()?.atom;
-        let net_active_window = connection
-            .intern_atom(false, b"_NET_ACTIVE_WINDOW")?
-            .reply()?
-            .atom;
-
-        Ok(Self {
-            net_current_desktop,
-            net_client_info,
-            wm_state,
-            wm_protocols,
-            wm_delete_window,
-            net_wm_state,
-            net_wm_state_fullscreen,
-            net_wm_window_type,
-            net_wm_window_type_dialog,
-            wm_name,
-            net_wm_name,
-            utf8_string,
-            net_active_window,
-        })
-    }
 }
 
 pub struct WindowManager {

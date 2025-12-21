@@ -1,22 +1,22 @@
+use crate::errors::X11Error;
+use crate::x11::{X11Display, XVisual};
 use std::ffi::CString;
 use x11::xft::{XftColor, XftDraw, XftDrawStringUtf8, XftFont, XftFontOpenName};
-use x11::xlib::{Colormap, Display, Drawable, Visual};
+use x11::xlib::{Colormap, Drawable};
 use x11::xrender::XRenderColor;
-
-use crate::errors::X11Error;
-use crate::x11::X11Display;
 
 pub struct Font {
     xft_font: *mut XftFont,
-    display: *mut Display,
+    display: X11Display,
 }
 
 impl Font {
-    pub fn new(display: *mut Display, screen: i32, font_name: &str) -> Result<Self, X11Error> {
+    pub fn new(mut display: X11Display, screen: i32, font_name: &str) -> Result<Self, X11Error> {
         let font_name_cstr =
             CString::new(font_name).map_err(|_| X11Error::FontLoadFailed(font_name.to_string()))?;
 
-        let xft_font = unsafe { XftFontOpenName(display, screen, font_name_cstr.as_ptr()) };
+        let xft_font =
+            unsafe { XftFontOpenName(display.as_mut(), screen, font_name_cstr.as_ptr()) };
 
         if xft_font.is_null() {
             return Err(X11Error::FontLoadFailed(font_name.to_string()));
@@ -39,11 +39,11 @@ impl Font {
         }
     }
 
-    pub fn text_width(&self, text: &str) -> u16 {
+    pub fn text_width(&mut self, text: &str) -> u16 {
         unsafe {
             let mut extents = std::mem::zeroed();
             x11::xft::XftTextExtentsUtf8(
-                self.display,
+                self.display.as_mut(),
                 self.xft_font,
                 text.as_ptr(),
                 text.len() as i32,
@@ -58,7 +58,7 @@ impl Drop for Font {
     fn drop(&mut self) {
         unsafe {
             if !self.xft_font.is_null() {
-                x11::xft::XftFontClose(self.display, self.xft_font);
+                x11::xft::XftFontClose(self.display.as_mut(), self.xft_font);
             }
         }
     }
@@ -72,11 +72,12 @@ impl FontDraw {
     pub fn new(
         mut display: X11Display,
         drawable: Drawable,
-        visual: *mut Visual,
+        mut visual: XVisual,
         colormap: Colormap,
     ) -> Result<Self, X11Error> {
-        let xft_draw =
-            unsafe { x11::xft::XftDrawCreate(display.as_mut(), drawable, visual, colormap) };
+        let xft_draw = unsafe {
+            x11::xft::XftDrawCreate(display.as_mut(), drawable, visual.as_mut(), colormap)
+        };
 
         if xft_draw.is_null() {
             return Err(X11Error::DrawCreateFailed);

@@ -1,7 +1,7 @@
 use super::{Overlay, OverlayBase};
 use crate::bar::font::Font;
 use crate::errors::X11Error;
-use crate::x11::X11Display;
+use crate::x11::X11;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
 use x11rb::rust_connection::RustConnection;
@@ -17,19 +17,10 @@ pub struct ErrorOverlay {
 }
 
 impl ErrorOverlay {
-    pub fn new(
-        connection: &RustConnection,
-        screen: &Screen,
-        screen_num: usize,
-        display: X11Display,
-        _font: &Font,
-        _max_width: u16,
-    ) -> Result<Self, X11Error> {
+    pub fn new(x11: &mut X11, screen_num: usize) -> Result<Self, X11Error> {
         let base = OverlayBase::new(
-            connection,
-            screen,
+            x11,
             screen_num,
-            display,
             400,
             200,
             BORDER_WIDTH,
@@ -47,7 +38,7 @@ impl ErrorOverlay {
     pub fn show_error(
         &mut self,
         connection: &RustConnection,
-        font: &Font,
+        font: &mut Font,
         error_text: &str,
         monitor_x: i16,
         monitor_y: i16,
@@ -80,7 +71,7 @@ impl ErrorOverlay {
         Ok(())
     }
 
-    fn wrap_text(&self, text: &str, font: &Font, max_width: u16) -> Vec<String> {
+    fn wrap_text(&self, text: &str, font: &mut Font, max_width: u16) -> Vec<String> {
         let mut lines = Vec::new();
         for paragraph in text.lines() {
             if paragraph.trim().is_empty() {
@@ -129,7 +120,7 @@ impl Overlay for ErrorOverlay {
         Ok(())
     }
 
-    fn draw(&self, connection: &RustConnection, font: &Font) -> Result<(), X11Error> {
+    fn draw(&self, connection: &RustConnection, font: &mut Font) -> Result<(), X11Error> {
         if !self.base.is_visible {
             return Ok(());
         }

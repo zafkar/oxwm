@@ -3,7 +3,7 @@ use crate::bar::font::Font;
 use crate::errors::X11Error;
 use crate::keyboard::KeyAction;
 use crate::keyboard::handlers::{KeyBinding, KeyPress};
-use crate::x11::X11Display;
+use crate::x11::X11;
 use std::time::Instant;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
@@ -27,18 +27,10 @@ pub struct KeybindOverlay {
 }
 
 impl KeybindOverlay {
-    pub fn new(
-        connection: &RustConnection,
-        screen: &Screen,
-        screen_num: usize,
-        display: X11Display,
-        modkey: KeyButMask,
-    ) -> Result<Self, X11Error> {
+    pub fn new(x11: &mut X11, screen_num: usize, modkey: KeyButMask) -> Result<Self, X11Error> {
         let base = OverlayBase::new(
-            connection,
-            screen,
+            x11,
             screen_num,
-            display,
             800,
             600,
             BORDER_WIDTH,
@@ -60,7 +52,7 @@ impl KeybindOverlay {
     pub fn show(
         &mut self,
         connection: &RustConnection,
-        font: &Font,
+        font: &mut Font,
         keybindings: &[KeyBinding],
         monitor_x: i16,
         monitor_y: i16,
@@ -115,7 +107,7 @@ impl KeybindOverlay {
     pub fn toggle(
         &mut self,
         connection: &RustConnection,
-        font: &Font,
+        font: &mut Font,
         keybindings: &[KeyBinding],
         monitor_x: i16,
         monitor_y: i16,
@@ -261,7 +253,7 @@ impl Overlay for KeybindOverlay {
         Ok(())
     }
 
-    fn draw(&self, connection: &RustConnection, font: &Font) -> Result<(), X11Error> {
+    fn draw(&self, connection: &RustConnection, font: &mut Font) -> Result<(), X11Error> {
         if !self.base.is_visible {
             return Ok(());
         }

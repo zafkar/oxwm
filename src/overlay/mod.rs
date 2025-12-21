@@ -1,6 +1,7 @@
 use crate::bar::font::{Font, FontDraw};
 use crate::errors::X11Error;
-use crate::x11::X11Display;
+use crate::x11::X11;
+use x11::xlib::Drawable;
 use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
@@ -16,7 +17,7 @@ pub trait Overlay {
     fn window(&self) -> Window;
     fn is_visible(&self) -> bool;
     fn hide(&mut self, connection: &RustConnection) -> Result<(), X11Error>;
-    fn draw(&self, connection: &RustConnection, font: &Font) -> Result<(), X11Error>;
+    fn draw(&self, connection: &RustConnection, font: &mut Font) -> Result<(), X11Error>;
 }
 
 pub struct OverlayBase {
@@ -32,10 +33,8 @@ pub struct OverlayBase {
 
 impl OverlayBase {
     pub fn new(
-        connection: &RustConnection,
-        screen: &Screen,
+        x11: &mut X11,
         screen_num: usize,
-        mut display: X11Display,
         width: u16,
         height: u16,
         border_width: u16,
@@ -43,20 +42,20 @@ impl OverlayBase {
         background_color: u32,
         foreground_color: u32,
     ) -> Result<Self, X11Error> {
-        let window = connection.generate_id()?;
-        let graphics_context = connection.generate_id()?;
+        let window = x11.connection.generate_id()?;
+        let graphics_context = x11.connection.generate_id()?;
 
-        connection.create_window(
+        x11.connection.create_window(
             COPY_DEPTH_FROM_PARENT,
             window,
-            screen.root,
+            x11.screen.root,
             0,
             0,
             width,
             height,
             border_width,
             WindowClass::INPUT_OUTPUT,
-            screen.root_visual,
+            x11.screen.root_visual,
             &CreateWindowAux::new()
                 .background_pixel(background_color)
                 .border_pixel(border_color)
@@ -64,7 +63,7 @@ impl OverlayBase {
                 .override_redirect(1),
         )?;
 
-        connection.create_gc(
+        x11.connection.create_gc(
             graphics_context,
             window,
             &CreateGCAux::new()
@@ -72,12 +71,9 @@ impl OverlayBase {
                 .background(background_color),
         )?;
 
-        connection.flush()?;
+        x11.connection.flush()?;
 
-        let visual = unsafe { x11::xlib::XDefaultVisual(display.as_mut(), screen_num as i32) };
-        let colormap = unsafe { x11::xlib::XDefaultColormap(display.as_mut(), screen_num as i32) };
-
-        let font_draw = FontDraw::new(display, window as x11::xlib::Drawable, visual, colormap)?;
+        let font_draw = x11.default_font_draw(window as Drawable, screen_num as i32)?;
 
         Ok(OverlayBase {
             window,

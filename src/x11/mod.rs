@@ -1,7 +1,8 @@
+use crate::bar::font::FontDraw;
 use crate::errors::X11Error;
 use crate::x11::atom::AtomCache;
 use std::ptr::NonNull;
-use x11::xlib::Display;
+use x11::xlib::{Display, Drawable, Visual};
 use x11rb::connection::Connection;
 use x11rb::cursor::Handle as CursorHandle;
 use x11rb::protocol::xproto::*;
@@ -81,7 +82,7 @@ impl X11 {
         let display = unsafe { X11Display::from_raw(display_ptr) }
             .ok_or(crate::errors::X11Error::DisplayOpenFailed)?;
 
-        let font = crate::bar::font::Font::new(display_ptr, screen_number as i32, font)?;
+        let font = crate::bar::font::Font::new(display, screen_number as i32, font)?;
 
         let atoms = AtomCache::new(&connection)?;
 
@@ -119,5 +120,42 @@ impl X11 {
             button,
             modifiers.into(),
         )?)
+    }
+
+    pub fn default_visual(&mut self, screen_num: i32) -> Option<XVisual> {
+        XVisual::from_raw(unsafe { x11::xlib::XDefaultVisual(self.display.as_mut(), screen_num) })
+    }
+
+    pub fn default_color_map(&mut self, screen_num: i32) -> u64 {
+        unsafe { x11::xlib::XDefaultColormap(self.display.as_mut(), screen_num) }
+    }
+
+    pub fn default_font_draw(
+        &mut self,
+        drawable: Drawable,
+        screen_num: i32,
+    ) -> X11Result<FontDraw> {
+        let visual = self
+            .default_visual(screen_num)
+            .ok_or(X11Error::FontLoadFailed(
+                "Couldn't get default Visual".to_string(),
+            ))?;
+        let colormap = self.default_color_map(screen_num);
+        FontDraw::new(self.display, drawable, visual, colormap)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct XVisual(NonNull<Visual>);
+
+impl XVisual {
+    fn from_raw(ptr: *mut Visual) -> Option<XVisual> {
+        NonNull::new(ptr).map(XVisual)
+    }
+}
+
+impl AsMut<Visual> for XVisual {
+    fn as_mut(&mut self) -> &mut Visual {
+        unsafe { self.0.as_mut() }
     }
 }

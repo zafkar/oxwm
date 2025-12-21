@@ -2,8 +2,8 @@ use super::blocks::Block;
 use super::font::{Font, FontDraw};
 use crate::Config;
 use crate::errors::X11Error;
-use crate::x11::X11Display;
 use crate::x11::xlib_graphic_context::XLibGC;
+use crate::x11::{X11, X11Display};
 use std::time::Instant;
 use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
@@ -38,39 +38,36 @@ pub struct Bar {
 
 impl Bar {
     pub fn new(
-        connection: &RustConnection,
-        screen: &Screen,
+        x11: &mut X11,
         screen_num: usize,
         config: &Config,
-        mut display: X11Display,
-        font: &Font,
         x: i16,
         y: i16,
         width: u16,
     ) -> Result<Self, X11Error> {
-        let window = connection.generate_id()?;
-        let graphics_context = connection.generate_id()?;
+        let window = x11.connection.generate_id()?;
+        let graphics_context = x11.connection.generate_id()?;
 
-        let height = (font.height() as f32 * 1.4) as u16;
+        let height = (x11.font.height() as f32 * 1.4) as u16;
 
-        connection.create_window(
+        x11.connection.create_window(
             COPY_DEPTH_FROM_PARENT,
             window,
-            screen.root,
+            x11.screen.root,
             x,
             y,
             width,
             height,
             0,
             WindowClass::INPUT_OUTPUT,
-            screen.root_visual,
+            x11.screen.root_visual,
             &CreateWindowAux::new()
                 .background_pixel(config.scheme_normal.background)
                 .event_mask(EventMask::EXPOSURE | EventMask::BUTTON_PRESS)
                 .override_redirect(1),
         )?;
 
-        connection.create_gc(
+        x11.connection.create_gc(
             graphics_context,
             window,
             &CreateGCAux::new()
@@ -78,16 +75,14 @@ impl Bar {
                 .background(config.scheme_normal.background),
         )?;
 
-        connection.map_window(window)?;
-        connection.flush()?;
+        x11.connection.map_window(window)?;
+        x11.connection.flush()?;
 
-        let visual = unsafe { x11::xlib::XDefaultVisual(display.as_mut(), screen_num as i32) };
-        let colormap = unsafe { x11::xlib::XDefaultColormap(display.as_mut(), screen_num as i32) };
-        let depth = unsafe { x11::xlib::XDefaultDepth(display.as_mut(), screen_num as i32) };
+        let depth = unsafe { x11::xlib::XDefaultDepth(x11.display.as_mut(), screen_num as i32) };
 
         let pixmap = unsafe {
             x11::xlib::XCreatePixmap(
-                display.as_mut(),
+                x11.display.as_mut(),
                 window as x11::xlib::Drawable,
                 width as u32,
                 height as u32,
@@ -95,15 +90,15 @@ impl Bar {
             )
         };
 
-        let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
+        let font_draw = x11.default_font_draw(pixmap, screen_num as i32)?;
 
-        let horizontal_padding = (font.height() as f32 * 0.4) as u16;
+        let horizontal_padding = (x11.font.height() as f32 * 0.4) as u16;
 
         let tag_widths = config
             .tags
             .iter()
             .map(|tag| {
-                let text_width = font.text_width(tag);
+                let text_width = x11.font.text_width(tag);
                 text_width + (horizontal_padding * 2)
             })
             .collect();
@@ -129,7 +124,7 @@ impl Bar {
             height,
             graphics_context,
             pixmap,
-            display,
+            display: x11.display,
             font_draw,
             tag_widths,
             needs_redraw: true,
@@ -186,7 +181,7 @@ impl Bar {
     pub fn draw(
         &mut self,
         connection: &RustConnection,
-        font: &Font,
+        font: &mut Font,
         current_tags: u32,
         occupied_tags: u32,
         urgent_tags: u32,

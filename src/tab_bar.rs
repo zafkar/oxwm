@@ -2,8 +2,8 @@ use crate::ColorScheme;
 use crate::bar::font::{Font, FontDraw};
 use crate::errors::X11Error;
 use crate::layout::tabbed::TAB_BAR_HEIGHT;
-use crate::x11::X11Display;
 use crate::x11::xlib_graphic_context::XLibGC;
+use crate::x11::{X11, X11Display};
 use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
@@ -25,40 +25,37 @@ pub struct TabBar {
 
 impl TabBar {
     pub fn new(
-        connection: &RustConnection,
-        screen: &Screen,
+        x11: &mut X11,
         screen_num: usize,
-        mut display: X11Display,
-        _font: &Font,
         x: i16,
         y: i16,
         width: u16,
         scheme_normal: ColorScheme,
         scheme_selected: ColorScheme,
     ) -> Result<Self, X11Error> {
-        let window = connection.generate_id()?;
-        let graphics_context = connection.generate_id()?;
+        let window = x11.connection.generate_id()?;
+        let graphics_context = x11.connection.generate_id()?;
 
         let height = TAB_BAR_HEIGHT as u16;
 
-        connection.create_window(
+        x11.connection.create_window(
             COPY_DEPTH_FROM_PARENT,
             window,
-            screen.root,
+            x11.screen.root,
             x,
             y,
             width,
             height,
             0,
             WindowClass::INPUT_OUTPUT,
-            screen.root_visual,
+            x11.screen.root_visual,
             &CreateWindowAux::new()
                 .background_pixel(scheme_normal.background)
                 .event_mask(EventMask::EXPOSURE | EventMask::BUTTON_PRESS)
                 .override_redirect(1),
         )?;
 
-        connection.create_gc(
+        x11.connection.create_gc(
             graphics_context,
             window,
             &CreateGCAux::new()
@@ -66,16 +63,14 @@ impl TabBar {
                 .background(scheme_normal.background),
         )?;
 
-        connection.map_window(window)?;
-        connection.flush()?;
+        x11.connection.map_window(window)?;
+        x11.connection.flush()?;
 
-        let visual = unsafe { x11::xlib::XDefaultVisual(display.as_mut(), screen_num as i32) };
-        let colormap = unsafe { x11::xlib::XDefaultColormap(display.as_mut(), screen_num as i32) };
-        let depth = unsafe { x11::xlib::XDefaultDepth(display.as_mut(), screen_num as i32) };
+        let depth = unsafe { x11::xlib::XDefaultDepth(x11.display.as_mut(), screen_num as i32) };
 
         let pixmap = unsafe {
             x11::xlib::XCreatePixmap(
-                display.as_mut(),
+                x11.display.as_mut(),
                 window as x11::xlib::Drawable,
                 width as u32,
                 height as u32,
@@ -83,7 +78,7 @@ impl TabBar {
             )
         };
 
-        let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
+        let font_draw = x11.default_font_draw(pixmap, screen_num as i32)?;
 
         Ok(Self {
             window,
@@ -93,7 +88,7 @@ impl TabBar {
             y_offset: y,
             graphics_context,
             pixmap,
-            display,
+            display: x11.display,
             font_draw,
             scheme_normal,
             scheme_selected,
@@ -107,7 +102,7 @@ impl TabBar {
     pub fn draw(
         &mut self,
         connection: &RustConnection,
-        font: &Font,
+        font: &mut Font,
         windows: &[(Window, String)],
         focused_window: Option<Window>,
     ) -> Result<(), X11Error> {
@@ -227,7 +222,7 @@ impl TabBar {
 
     pub fn reposition(
         &mut self,
-        connection: &RustConnection,
+        x11: &mut X11,
         x: i16,
         y: i16,
         width: u16,
@@ -236,7 +231,7 @@ impl TabBar {
         self.y_offset = y;
         self.width = width;
 
-        connection.configure_window(
+        x11.connection.configure_window(
             self.window,
             &ConfigureWindowAux::new()
                 .x(x as i32)
@@ -259,11 +254,9 @@ impl TabBar {
             )
         };
 
-        let visual = unsafe { x11::xlib::XDefaultVisual(self.display.as_mut(), 0) };
-        let colormap = unsafe { x11::xlib::XDefaultColormap(self.display.as_mut(), 0) };
-        self.font_draw = FontDraw::new(self.display, self.pixmap, visual, colormap)?;
+        self.font_draw = x11.default_font_draw(self.pixmap, 0)?;
 
-        connection.flush()?;
+        x11.connection.flush()?;
         Ok(())
     }
 

@@ -1,5 +1,6 @@
 use crate::client::TagMask;
 use crate::errors::WmError;
+use crate::x11::X11Result;
 use x11rb::protocol::xinerama::ConnectionExt as _;
 use x11rb::protocol::xproto::{Screen, Window};
 use x11rb::rust_connection::RustConnection;
@@ -86,7 +87,7 @@ pub fn detect_monitors(
     connection: &RustConnection,
     screen: &Screen,
     _root: Window,
-) -> WmResult<Vec<Monitor>> {
+) -> X11Result<Vec<Monitor>> {
     let fallback_monitors = || {
         vec![Monitor::new(
             0,

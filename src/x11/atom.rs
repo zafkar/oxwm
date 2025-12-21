@@ -1,8 +1,6 @@
 use x11rb::{protocol::xproto::*, rust_connection::RustConnection};
 
-use crate::errors::X11Error;
-
-pub type X11Result<T> = Result<T, X11Error>;
+use crate::x11::X11Result;
 
 pub struct AtomCache {
     pub net_current_desktop: Atom,

@@ -135,7 +135,7 @@ impl FontDraw {
     pub fn sync(&self) {
         unsafe {
             let display = x11::xft::XftDrawDisplay(self.xft_draw);
-            x11::xlib::XSync(display, 0);
+            x11::xlib::XSync(display, 1);
         }
     }
 }
@@ -146,6 +146,54 @@ impl Drop for FontDraw {
             if !self.xft_draw.is_null() {
                 x11::xft::XftDrawDestroy(self.xft_draw);
             }
+        }
+    }
+}
+
+pub struct DrawingSurface {
+    font_draw: FontDraw,
+    pixmap: x11::xlib::Pixmap,
+    display: *mut Display,
+}
+
+impl DrawingSurface {
+    pub fn new(
+        display: *mut Display,
+        window: x11::xlib::Drawable,
+        width: u32,
+        height: u32,
+        visual: *mut Visual,
+        colormap: Colormap,
+    ) -> Result<Self, crate::errors::X11Error> {
+        let depth = unsafe { x11::xlib::XDefaultDepth(display, 0) };
+        let pixmap = unsafe {
+            x11::xlib::XCreatePixmap(display, window, width, height, depth as u32)
+        };
+
+        let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
+
+        Ok(Self {
+            font_draw,
+            pixmap,
+            display,
+        })
+    }
+
+    pub fn pixmap(&self) -> x11::xlib::Pixmap {
+        self.pixmap
+    }
+
+    pub fn font_draw(&self) -> &FontDraw {
+        &self.font_draw
+    }
+}
+
+impl Drop for DrawingSurface {
+    fn drop(&mut self) {
+        unsafe {
+            x11::xft::XftDrawDestroy(self.font_draw.xft_draw);
+            self.font_draw.xft_draw = std::ptr::null_mut();
+            x11::xlib::XFreePixmap(self.display, self.pixmap);
         }
     }
 }

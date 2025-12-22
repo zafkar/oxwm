@@ -1,5 +1,5 @@
 use super::blocks::Block;
-use super::font::{Font, FontDraw};
+use super::font::{DrawingSurface, Font};
 use crate::Config;
 use crate::errors::X11Error;
 use std::time::Instant;
@@ -13,10 +13,7 @@ pub struct Bar {
     width: u16,
     height: u16,
     graphics_context: Gcontext,
-    pixmap: x11::xlib::Pixmap,
-    display: *mut x11::xlib::Display,
-
-    font_draw: FontDraw,
+    surface: DrawingSurface,
 
     tag_widths: Vec<u16>,
     needs_redraw: bool,
@@ -80,19 +77,15 @@ impl Bar {
 
         let visual = unsafe { x11::xlib::XDefaultVisual(display, screen_num as i32) };
         let colormap = unsafe { x11::xlib::XDefaultColormap(display, screen_num as i32) };
-        let depth = unsafe { x11::xlib::XDefaultDepth(display, screen_num as i32) };
 
-        let pixmap = unsafe {
-            x11::xlib::XCreatePixmap(
-                display,
-                window as x11::xlib::Drawable,
-                width as u32,
-                height as u32,
-                depth as u32,
-            )
-        };
-
-        let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
+        let surface = DrawingSurface::new(
+            display,
+            window as x11::xlib::Drawable,
+            width as u32,
+            height as u32,
+            visual,
+            colormap,
+        )?;
 
         let horizontal_padding = (font.height() as f32 * 0.4) as u16;
 
@@ -124,9 +117,7 @@ impl Bar {
             width,
             height,
             graphics_context,
-            pixmap,
-            display,
-            font_draw,
+            surface,
             tag_widths,
             needs_redraw: true,
             blocks,
@@ -201,11 +192,11 @@ impl Bar {
         connection.flush()?;
 
         unsafe {
-            let gc = x11::xlib::XCreateGC(display, self.pixmap, 0, std::ptr::null_mut());
+            let gc = x11::xlib::XCreateGC(display, self.surface.pixmap(), 0, std::ptr::null_mut());
             x11::xlib::XSetForeground(display, gc, self.scheme_normal.background as u64);
             x11::xlib::XFillRectangle(
                 display,
-                self.pixmap,
+                self.surface.pixmap(),
                 gc,
                 0,
                 0,
@@ -241,7 +232,8 @@ impl Bar {
             let top_padding = 4;
             let text_y = top_padding + font.ascent();
 
-            self.font_draw
+            self.surface
+                .font_draw()
                 .draw_text(font, scheme.foreground, text_x, text_y, tag);
 
             if is_selected || is_urgent {
@@ -255,11 +247,11 @@ impl Bar {
                 let underline_x = x_position + (underline_padding / 2) as i16;
 
                 unsafe {
-                    let gc = x11::xlib::XCreateGC(display, self.pixmap, 0, std::ptr::null_mut());
+                    let gc = x11::xlib::XCreateGC(display, self.surface.pixmap(), 0, std::ptr::null_mut());
                     x11::xlib::XSetForeground(display, gc, scheme.underline as u64);
                     x11::xlib::XFillRectangle(
                         display,
-                        self.pixmap,
+                        self.surface.pixmap(),
                         gc,
                         underline_x as i32,
                         underline_y as i32,
@@ -279,7 +271,7 @@ impl Bar {
         let top_padding = 4;
         let text_y = top_padding + font.ascent();
 
-        self.font_draw.draw_text(
+        self.surface.font_draw().draw_text(
             font,
             self.scheme_normal.foreground,
             text_x,
@@ -295,7 +287,7 @@ impl Bar {
             let text_x = x_position;
             let text_y = top_padding + font.ascent();
 
-            self.font_draw.draw_text(
+            self.surface.font_draw().draw_text(
                 font,
                 self.scheme_selected.foreground,
                 text_x,
@@ -316,7 +308,8 @@ impl Bar {
                     let top_padding = 4;
                     let text_y = top_padding + font.ascent();
 
-                    self.font_draw
+                    self.surface
+                        .font_draw()
                         .draw_text(font, block.color(), x_position, text_y, &text);
 
                     if self.block_underlines[i] {
@@ -331,11 +324,11 @@ impl Bar {
 
                         unsafe {
                             let gc =
-                                x11::xlib::XCreateGC(display, self.pixmap, 0, std::ptr::null_mut());
+                                x11::xlib::XCreateGC(display, self.surface.pixmap(), 0, std::ptr::null_mut());
                             x11::xlib::XSetForeground(display, gc, block.color() as u64);
                             x11::xlib::XFillRectangle(
                                 display,
-                                self.pixmap,
+                                self.surface.pixmap(),
                                 gc,
                                 underline_x as i32,
                                 underline_y as i32,
@@ -358,7 +351,7 @@ impl Bar {
             );
             x11::xlib::XCopyArea(
                 display,
-                self.pixmap,
+                self.surface.pixmap(),
                 self.window as x11::xlib::Drawable,
                 gc,
                 0,
@@ -369,7 +362,7 @@ impl Bar {
                 0,
             );
             x11::xlib::XFreeGC(display, gc);
-            x11::xlib::XSync(display, 0);
+            x11::xlib::XSync(display, 1);
         }
 
         self.needs_redraw = false;
@@ -416,13 +409,5 @@ impl Bar {
 
         self.status_text.clear();
         self.needs_redraw = true;
-    }
-}
-
-impl Drop for Bar {
-    fn drop(&mut self) {
-        unsafe {
-            x11::xlib::XFreePixmap(self.display, self.pixmap);
-        }
     }
 }

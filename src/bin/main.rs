@@ -3,8 +3,8 @@ use oxwm::errors::MainError;
 use std::path::Path;
 use std::path::PathBuf;
 
-static CONFIG_FILE: &str = "config.lua";
-static TEMPLATE: &str = include_str!("../../templates/config.lua");
+const CONFIG_FILE: &str = "config.lua";
+const TEMPLATE: &str = include_str!("../../templates/config.lua");
 
 enum Args {
     Exit,

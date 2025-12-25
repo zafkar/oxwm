@@ -1,5 +1,6 @@
 use crate::bar::font::{Font, FontDraw};
 use crate::errors::X11Error;
+use crate::window_manager::XLibDisplay;
 use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
@@ -15,7 +16,7 @@ pub trait Overlay {
     fn window(&self) -> Window;
     fn is_visible(&self) -> bool;
     fn hide(&mut self, connection: &RustConnection) -> Result<(), X11Error>;
-    fn draw(&self, connection: &RustConnection, font: &Font) -> Result<(), X11Error>;
+    fn draw(&self, connection: &RustConnection, font: &mut Font) -> Result<(), X11Error>;
 }
 
 pub struct OverlayBase {
@@ -34,7 +35,7 @@ impl OverlayBase {
         connection: &RustConnection,
         screen: &Screen,
         screen_num: usize,
-        display: *mut x11::xlib::Display,
+        mut display: XLibDisplay,
         width: u16,
         height: u16,
         border_width: u16,
@@ -73,8 +74,8 @@ impl OverlayBase {
 
         connection.flush()?;
 
-        let visual = unsafe { x11::xlib::XDefaultVisual(display, screen_num as i32) };
-        let colormap = unsafe { x11::xlib::XDefaultColormap(display, screen_num as i32) };
+        let visual = unsafe { x11::xlib::XDefaultVisual(display.as_mut(), screen_num as i32) };
+        let colormap = unsafe { x11::xlib::XDefaultColormap(display.as_mut(), screen_num as i32) };
 
         let font_draw = FontDraw::new(display, window as x11::xlib::Drawable, visual, colormap)?;
 

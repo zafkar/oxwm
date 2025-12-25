@@ -9,6 +9,8 @@ use crate::layout::{Layout, LayoutBox, LayoutType, layout_from_str, next_layout}
 use crate::monitor::{Monitor, detect_monitors};
 use crate::overlay::{ErrorOverlay, KeybindOverlay, Overlay};
 use std::collections::{HashMap, HashSet};
+use std::ptr::NonNull;
+use x11::xlib::Display;
 use x11rb::cursor::Handle as CursorHandle;
 
 use x11rb::connection::Connection;
@@ -120,6 +122,25 @@ impl AtomCache {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct XLibDisplay(NonNull<Display>);
+
+impl XLibDisplay {
+    pub fn open() -> WmResult<Self> {
+        if let Some(display) = NonNull::new(unsafe { x11::xlib::XOpenDisplay(std::ptr::null()) }) {
+            Ok(XLibDisplay(display))
+        } else {
+            Err(WmError::X11(crate::errors::X11Error::DisplayOpenFailed))
+        }
+    }
+}
+
+impl AsMut<Display> for XLibDisplay {
+    fn as_mut(&mut self) -> &mut Display {
+        unsafe { self.0.as_mut() }
+    }
+}
+
 pub struct WindowManager {
     config: Config,
     connection: RustConnection,
@@ -139,7 +160,7 @@ pub struct WindowManager {
     selected_monitor: usize,
     atoms: AtomCache,
     previous_focused: Option<Window>,
-    display: *mut x11::xlib::Display,
+    display: XLibDisplay,
     font: crate::bar::font::Font,
     keychord_state: keyboard::handlers::KeychordState,
     current_key: usize,
@@ -218,12 +239,9 @@ impl WindowManager {
 
         let monitors = detect_monitors(&connection, &screen, root)?;
 
-        let display = unsafe { x11::xlib::XOpenDisplay(std::ptr::null()) };
-        if display.is_null() {
-            return Err(WmError::X11(crate::errors::X11Error::DisplayOpenFailed));
-        }
+        let display = XLibDisplay::open()?;
 
-        let font = crate::bar::font::Font::new(display, screen_number as i32, &config.font)?;
+        let mut font = crate::bar::font::Font::new(display, screen_number as i32, &config.font)?;
 
         let mut bars = Vec::new();
         for monitor in monitors.iter() {
@@ -233,7 +251,7 @@ impl WindowManager {
                 screen_number,
                 &config,
                 display,
-                &font,
+                &mut font,
                 monitor.screen_x as i16,
                 monitor.screen_y as i16,
                 monitor.screen_width as u16,
@@ -327,7 +345,7 @@ impl WindowManager {
 
         if let Err(e) = self.overlay.show_error(
             &self.connection,
-            &self.font,
+            &mut self.font,
             error.as_str(),
             monitor_x,
             monitor_y,
@@ -679,7 +697,7 @@ impl WindowManager {
                 bar.invalidate();
                 bar.draw(
                     &self.connection,
-                    &self.font,
+                    &mut self.font,
                     self.display,
                     monitor.tagset[monitor.selected_tags_index],
                     occupied_tags,
@@ -719,7 +737,7 @@ impl WindowManager {
 
                 tab_bar.draw(
                     &self.connection,
-                    &self.font,
+                    &mut self.font,
                     &visible_windows,
                     focused_window,
                 )?;
@@ -878,7 +896,7 @@ impl WindowManager {
                 let monitor = &self.monitors[self.selected_monitor];
                 self.keybind_overlay.toggle(
                     &self.connection,
-                    &self.font,
+                    &mut self.font,
                     &self.config.keybindings,
                     monitor.screen_x as i16,
                     monitor.screen_y as i16,
@@ -2703,7 +2721,7 @@ impl WindowManager {
             }
             Event::Expose(ref expose_event) if expose_event.window == self.overlay.window() => {
                 if self.overlay.is_visible()
-                    && let Err(error) = self.overlay.draw(&self.connection, &self.font)
+                    && let Err(error) = self.overlay.draw(&self.connection, &mut self.font)
                 {
                     eprintln!("Failed to draw overlay: {:?}", error);
                 }
@@ -2736,7 +2754,7 @@ impl WindowManager {
                 if expose_event.window == self.keybind_overlay.window() =>
             {
                 if self.keybind_overlay.is_visible()
-                    && let Err(error) = self.keybind_overlay.draw(&self.connection, &self.font)
+                    && let Err(error) = self.keybind_overlay.draw(&self.connection, &mut self.font)
                 {
                     eprintln!("Failed to draw keybind overlay: {:?}", error);
                 }
@@ -2889,7 +2907,7 @@ impl WindowManager {
                                     let screen_height = monitor.screen_height as u16;
                                     match self.overlay.show_error(
                                         &self.connection,
-                                        &self.font,
+                                        &mut self.font,
                                         &err,
                                         monitor_x,
                                         monitor_y,

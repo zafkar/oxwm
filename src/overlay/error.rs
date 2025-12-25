@@ -1,6 +1,7 @@
 use super::{Overlay, OverlayBase};
 use crate::bar::font::Font;
 use crate::errors::X11Error;
+use crate::window_manager::XLibDisplay;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
 use x11rb::rust_connection::RustConnection;
@@ -20,7 +21,7 @@ impl ErrorOverlay {
         connection: &RustConnection,
         screen: &Screen,
         screen_num: usize,
-        display: *mut x11::xlib::Display,
+        display: XLibDisplay,
         _font: &Font,
         _max_width: u16,
     ) -> Result<Self, X11Error> {
@@ -46,7 +47,7 @@ impl ErrorOverlay {
     pub fn show_error(
         &mut self,
         connection: &RustConnection,
-        font: &Font,
+        font: &mut Font,
         error_text: &str,
         monitor_x: i16,
         monitor_y: i16,
@@ -79,7 +80,7 @@ impl ErrorOverlay {
         Ok(())
     }
 
-    fn wrap_text(&self, text: &str, font: &Font, max_width: u16) -> Vec<String> {
+    fn wrap_text(&self, text: &str, font: &mut Font, max_width: u16) -> Vec<String> {
         let mut lines = Vec::new();
         for paragraph in text.lines() {
             if paragraph.trim().is_empty() {
@@ -128,7 +129,7 @@ impl Overlay for ErrorOverlay {
         Ok(())
     }
 
-    fn draw(&self, connection: &RustConnection, font: &Font) -> Result<(), X11Error> {
+    fn draw(&self, connection: &RustConnection, font: &mut Font) -> Result<(), X11Error> {
         if !self.base.is_visible {
             return Ok(());
         }

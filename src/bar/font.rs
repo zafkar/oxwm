@@ -1,21 +1,23 @@
 use std::ffi::CString;
 use x11::xft::{XftColor, XftDraw, XftDrawStringUtf8, XftFont, XftFontOpenName};
-use x11::xlib::{Colormap, Display, Drawable, Visual};
+use x11::xlib::{Colormap, Drawable, Visual};
 use x11::xrender::XRenderColor;
 
 use crate::errors::X11Error;
+use crate::window_manager::XLibDisplay;
 
 pub struct Font {
     xft_font: *mut XftFont,
-    display: *mut Display,
+    display: XLibDisplay,
 }
 
 impl Font {
-    pub fn new(display: *mut Display, screen: i32, font_name: &str) -> Result<Self, X11Error> {
+    pub fn new(mut display: XLibDisplay, screen: i32, font_name: &str) -> Result<Self, X11Error> {
         let font_name_cstr =
             CString::new(font_name).map_err(|_| X11Error::FontLoadFailed(font_name.to_string()))?;
 
-        let xft_font = unsafe { XftFontOpenName(display, screen, font_name_cstr.as_ptr()) };
+        let xft_font =
+            unsafe { XftFontOpenName(display.as_mut(), screen, font_name_cstr.as_ptr()) };
 
         if xft_font.is_null() {
             return Err(X11Error::FontLoadFailed(font_name.to_string()));
@@ -38,11 +40,11 @@ impl Font {
         }
     }
 
-    pub fn text_width(&self, text: &str) -> u16 {
+    pub fn text_width(&mut self, text: &str) -> u16 {
         unsafe {
             let mut extents = std::mem::zeroed();
             x11::xft::XftTextExtentsUtf8(
-                self.display,
+                self.display.as_mut(),
                 self.xft_font,
                 text.as_ptr(),
                 text.len() as i32,
@@ -57,7 +59,7 @@ impl Drop for Font {
     fn drop(&mut self) {
         unsafe {
             if !self.xft_font.is_null() {
-                x11::xft::XftFontClose(self.display, self.xft_font);
+                x11::xft::XftFontClose(self.display.as_mut(), self.xft_font);
             }
         }
     }
@@ -69,12 +71,13 @@ pub struct FontDraw {
 
 impl FontDraw {
     pub fn new(
-        display: *mut Display,
+        mut display: XLibDisplay,
         drawable: Drawable,
         visual: *mut Visual,
         colormap: Colormap,
     ) -> Result<Self, X11Error> {
-        let xft_draw = unsafe { x11::xft::XftDrawCreate(display, drawable, visual, colormap) };
+        let xft_draw =
+            unsafe { x11::xft::XftDrawCreate(display.as_mut(), drawable, visual, colormap) };
 
         if xft_draw.is_null() {
             return Err(X11Error::DrawCreateFailed);
@@ -153,21 +156,21 @@ impl Drop for FontDraw {
 pub struct DrawingSurface {
     font_draw: FontDraw,
     pixmap: x11::xlib::Pixmap,
-    display: *mut Display,
+    display: XLibDisplay,
 }
 
 impl DrawingSurface {
     pub fn new(
-        display: *mut Display,
+        mut display: XLibDisplay,
         window: x11::xlib::Drawable,
         width: u32,
         height: u32,
         visual: *mut Visual,
         colormap: Colormap,
     ) -> Result<Self, crate::errors::X11Error> {
-        let depth = unsafe { x11::xlib::XDefaultDepth(display, 0) };
+        let depth = unsafe { x11::xlib::XDefaultDepth(display.as_mut(), 0) };
         let pixmap = unsafe {
-            x11::xlib::XCreatePixmap(display, window, width, height, depth as u32)
+            x11::xlib::XCreatePixmap(display.as_mut(), window, width, height, depth as u32)
         };
 
         let font_draw = FontDraw::new(display, pixmap, visual, colormap)?;
@@ -193,7 +196,7 @@ impl Drop for DrawingSurface {
         unsafe {
             x11::xft::XftDrawDestroy(self.font_draw.xft_draw);
             self.font_draw.xft_draw = std::ptr::null_mut();
-            x11::xlib::XFreePixmap(self.display, self.pixmap);
+            x11::xlib::XFreePixmap(self.display.as_mut(), self.pixmap);
         }
     }
 }

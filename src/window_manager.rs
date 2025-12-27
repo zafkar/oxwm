@@ -32,6 +32,7 @@ pub fn unmask_tag(mask: TagMask) -> usize {
 }
 
 struct AtomCache {
+    net_supported: Atom,
     net_current_desktop: Atom,
     net_client_info: Atom,
     wm_state: Atom,
@@ -49,6 +50,11 @@ struct AtomCache {
 
 impl AtomCache {
     fn new(connection: &RustConnection) -> WmResult<Self> {
+        let net_supported = connection
+            .intern_atom(false, b"_NET_SUPPORTED")?
+            .reply()?
+            .atom;
+
         let net_current_desktop = connection
             .intern_atom(false, b"_NET_CURRENT_DESKTOP")?
             .reply()?
@@ -103,6 +109,7 @@ impl AtomCache {
             .atom;
 
         Ok(Self {
+            net_supported,
             net_current_desktop,
             net_client_info,
             wm_state,
@@ -264,6 +271,31 @@ impl WindowManager {
         let gaps_enabled = config.gaps_enabled;
 
         let atoms = AtomCache::new(&connection)?;
+
+        let supported_atoms: Vec<Atom> = vec![
+            atoms.net_supported,
+            atoms.net_wm_state,
+            atoms.net_wm_state_fullscreen,
+            atoms.net_wm_window_type,
+            atoms.net_wm_window_type_dialog,
+            atoms.net_active_window,
+            atoms.net_wm_name,
+            atoms.net_current_desktop,
+            atoms.net_client_info,
+        ];
+        let supported_bytes: Vec<u8> = supported_atoms
+            .iter()
+            .flat_map(|a| a.to_ne_bytes())
+            .collect();
+        connection.change_property(
+            PropMode::REPLACE,
+            root,
+            atoms.net_supported,
+            AtomEnum::ATOM,
+            32,
+            supported_atoms.len() as u32,
+            &supported_bytes,
+        )?;
 
         let overlay = ErrorOverlay::new(
             &connection,
@@ -1447,6 +1479,25 @@ impl WindowManager {
                 Ok(Some(atom))
             }
             _ => Ok(None),
+        }
+    }
+
+    fn get_window_atom_list_property(&self, window: Window, property: Atom) -> WmResult<Vec<Atom>> {
+        let reply = self
+            .connection
+            .get_property(false, window, property, AtomEnum::ATOM, 0, 32)?
+            .reply();
+
+        match reply {
+            Ok(prop) if !prop.value.is_empty() => {
+                let atoms: Vec<Atom> = prop
+                    .value
+                    .chunks_exact(4)
+                    .map(|chunk| u32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+                    .collect();
+                Ok(atoms)
+            }
+            _ => Ok(Vec::new()),
         }
     }
 
@@ -3170,10 +3221,14 @@ impl WindowManager {
                 }
 
                 if event.type_ == self.atoms.net_wm_state {
-                    if let Some(data) = event.data.as_data32().get(1)
-                        && *data == self.atoms.net_wm_state_fullscreen
+                    let data = event.data.as_data32();
+                    let atom1 = data.get(1).copied().unwrap_or(0);
+                    let atom2 = data.get(2).copied().unwrap_or(0);
+
+                    if atom1 == self.atoms.net_wm_state_fullscreen
+                        || atom2 == self.atoms.net_wm_state_fullscreen
                     {
-                        let action = event.data.as_data32()[0];
+                        let action = data[0];
                         let fullscreen = match action {
                             1 => true,
                             0 => false,
@@ -3181,6 +3236,7 @@ impl WindowManager {
                             _ => return Ok(Control::Continue),
                         };
                         self.set_window_fullscreen(event.window, fullscreen)?;
+                        self.restack()?;
                     }
                 } else if event.type_ == self.atoms.net_active_window {
                     let selected_window = self
@@ -3712,10 +3768,11 @@ impl WindowManager {
     }
 
     fn update_window_type(&mut self, window: Window) -> WmResult<()> {
-        if let Ok(Some(state_atom)) = self.get_window_atom_property(window, self.atoms.net_wm_state)
-            && state_atom == self.atoms.net_wm_state_fullscreen
+        if let Ok(state_atoms) = self.get_window_atom_list_property(window, self.atoms.net_wm_state)
         {
-            self.set_window_fullscreen(window, true)?;
+            if state_atoms.contains(&self.atoms.net_wm_state_fullscreen) {
+                self.set_window_fullscreen(window, true)?;
+            }
         }
 
         if let Ok(Some(type_atom)) =

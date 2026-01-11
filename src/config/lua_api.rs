@@ -300,8 +300,16 @@ fn register_layout_module(lua: &Lua, parent: &Table) -> Result<(), ConfigError> 
         )
     })?;
 
+    let scroll_left =
+        lua.create_function(|lua, ()| create_action_table(lua, "ScrollLeft", Value::Nil))?;
+
+    let scroll_right =
+        lua.create_function(|lua, ()| create_action_table(lua, "ScrollRight", Value::Nil))?;
+
     layout_table.set("cycle", cycle)?;
     layout_table.set("set", set)?;
+    layout_table.set("scroll_left", scroll_left)?;
+    layout_table.set("scroll_right", scroll_right)?;
     parent.set("layout", layout_table)?;
     Ok(())
 }
@@ -929,6 +937,8 @@ fn string_to_action(s: &str) -> mlua::Result<KeyAction> {
         "FocusMonitor" => Ok(KeyAction::FocusMonitor),
         "TagMonitor" => Ok(KeyAction::TagMonitor),
         "ShowKeybindOverlay" => Ok(KeyAction::ShowKeybindOverlay),
+        "ScrollLeft" => Ok(KeyAction::ScrollLeft),
+        "ScrollRight" => Ok(KeyAction::ScrollRight),
         _ => Err(mlua::Error::RuntimeError(format!(
             "unknown action '{}'. this is an internal error, please report it",
             s

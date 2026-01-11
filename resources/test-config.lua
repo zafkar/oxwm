@@ -77,7 +77,11 @@ oxwm.key.bind({ modkey, "Shift" }, "Space", oxwm.client.toggle_floating())
 
 oxwm.key.bind({ modkey }, "F", oxwm.layout.set("normie"))
 oxwm.key.bind({ modkey }, "C", oxwm.layout.set("tiling"))
+oxwm.key.bind({ modkey }, "G", oxwm.layout.set("scrolling"))
 oxwm.key.bind({ modkey }, "N", oxwm.layout.cycle())
+
+oxwm.key.bind({ modkey }, "Left", oxwm.layout.scroll_left())
+oxwm.key.bind({ modkey }, "Right", oxwm.layout.scroll_right())
 
 oxwm.key.bind({ modkey }, "A", oxwm.toggle_gaps())
 

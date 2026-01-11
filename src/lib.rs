@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub mod animations;
 pub mod bar;
 pub mod client;
 pub mod config;

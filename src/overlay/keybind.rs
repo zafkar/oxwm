@@ -239,6 +239,8 @@ impl KeybindOverlay {
             KeyAction::TagMonitor => "Send Window to Monitor".to_string(),
             KeyAction::SetMasterFactor => "Adjust Master Area Size".to_string(),
             KeyAction::IncNumMaster => "Adjust Number of Master Windows".to_string(),
+            KeyAction::ScrollLeft => "Scroll Layout Left".to_string(),
+            KeyAction::ScrollRight => "Scroll Layout Right".to_string(),
             KeyAction::None => "No Action".to_string(),
         }
     }

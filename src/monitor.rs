@@ -17,7 +17,13 @@ pub struct Pertag {
 }
 
 impl Pertag {
-    pub fn new(num_tags: usize, default_num_master: i32, default_master_factor: f32, default_show_bar: bool, default_layout: &str) -> Self {
+    pub fn new(
+        num_tags: usize,
+        default_num_master: i32,
+        default_master_factor: f32,
+        default_show_bar: bool,
+        default_layout: &str,
+    ) -> Self {
         let len = num_tags + 1;
         Self {
             current_tag: 1,
@@ -59,6 +65,7 @@ pub struct Monitor {
     pub stack_head: Option<Window>,
     pub bar_window: Option<Window>,
     pub layout_indices: [usize; 2],
+    pub scroll_offset: i32,
     pub pertag: Option<Pertag>,
 }
 
@@ -92,6 +99,7 @@ impl Monitor {
             stack_head: None,
             bar_window: None,
             layout_indices: [0, 1],
+            scroll_offset: 0,
             pertag: None,
         }
     }

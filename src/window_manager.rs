@@ -1,4 +1,5 @@
 use crate::Config;
+use crate::animations::{AnimationConfig, ScrollAnimation};
 use crate::bar::Bar;
 use crate::client::{Client, TagMask};
 use crate::errors::{ConfigError, WmError};
@@ -174,6 +175,8 @@ pub struct WindowManager {
     error_message: Option<String>,
     overlay: ErrorOverlay,
     keybind_overlay: KeybindOverlay,
+    scroll_animation: ScrollAnimation,
+    animation_config: AnimationConfig,
 }
 
 type WmResult<T> = Result<T, WmError>;
@@ -407,6 +410,8 @@ impl WindowManager {
             error_message: None,
             overlay,
             keybind_overlay,
+            scroll_animation: ScrollAnimation::new(),
+            animation_config: AnimationConfig::default(),
         };
 
         for tab_bar in &window_manager.tab_bars {
@@ -645,6 +650,8 @@ impl WindowManager {
                         last_bar_update = std::time::Instant::now();
                     }
 
+                    self.tick_animations()?;
+
                     self.connection.flush()?;
                     std::thread::sleep(std::time::Duration::from_millis(16));
                 }
@@ -733,6 +740,166 @@ impl WindowManager {
         Ok(())
     }
 
+    fn tick_animations(&mut self) -> WmResult<()> {
+        if self.scroll_animation.is_active() {
+            if let Some(new_offset) = self.scroll_animation.update() {
+                if let Some(m) = self.monitors.get_mut(self.selected_monitor) {
+                    m.scroll_offset = new_offset;
+                }
+                self.apply_layout()?;
+                self.update_bar()?;
+            }
+        }
+        Ok(())
+    }
+
+    fn scroll_layout(&mut self, direction: i32) -> WmResult<()> {
+        if self.layout.name() != "scrolling" {
+            return Ok(());
+        }
+
+        let monitor_index = self.selected_monitor;
+        let monitor = match self.monitors.get(monitor_index) {
+            Some(m) => m.clone(),
+            None => return Ok(()),
+        };
+
+        let visible_count = if monitor.num_master > 0 {
+            monitor.num_master as usize
+        } else {
+            2
+        };
+
+        let mut tiled_count = 0;
+        let mut current = self.next_tiled(monitor.clients_head, &monitor);
+        while let Some(window) = current {
+            tiled_count += 1;
+            if let Some(client) = self.clients.get(&window) {
+                current = self.next_tiled(client.next, &monitor);
+            } else {
+                break;
+            }
+        }
+
+        if tiled_count <= visible_count {
+            if let Some(m) = self.monitors.get_mut(monitor_index) {
+                m.scroll_offset = 0;
+            }
+            return Ok(());
+        }
+
+        let outer_gap = if self.gaps_enabled {
+            self.config.gap_outer_vertical
+        } else {
+            0
+        };
+        let inner_gap = if self.gaps_enabled {
+            self.config.gap_inner_vertical
+        } else {
+            0
+        };
+
+        let available_width = monitor.screen_width - 2 * outer_gap as i32;
+        let total_inner_gaps = inner_gap as i32 * (visible_count - 1) as i32;
+        let window_width = (available_width - total_inner_gaps) / visible_count as i32;
+        let scroll_amount = window_width + inner_gap as i32;
+
+        let total_width = tiled_count as i32 * window_width + (tiled_count - 1) as i32 * inner_gap as i32;
+        let max_scroll = (total_width - available_width).max(0);
+
+        let current_offset = monitor.scroll_offset;
+        let target_offset = if self.scroll_animation.is_active() {
+            self.scroll_animation.target() + direction * scroll_amount
+        } else {
+            current_offset + direction * scroll_amount
+        };
+        let target_offset = target_offset.clamp(0, max_scroll);
+
+        self.scroll_animation.start(current_offset, target_offset, &self.animation_config);
+
+        Ok(())
+    }
+
+    fn scroll_to_window(&mut self, target_window: Window, animate: bool) -> WmResult<()> {
+        if self.layout.name() != "scrolling" {
+            return Ok(());
+        }
+
+        let monitor_index = self.selected_monitor;
+        let monitor = match self.monitors.get(monitor_index) {
+            Some(m) => m.clone(),
+            None => return Ok(()),
+        };
+
+        let visible_count = if monitor.num_master > 0 {
+            monitor.num_master as usize
+        } else {
+            2
+        };
+
+        let outer_gap = if self.gaps_enabled {
+            self.config.gap_outer_vertical
+        } else {
+            0
+        };
+        let inner_gap = if self.gaps_enabled {
+            self.config.gap_inner_vertical
+        } else {
+            0
+        };
+
+        let mut tiled_windows = Vec::new();
+        let mut current = self.next_tiled(monitor.clients_head, &monitor);
+        while let Some(window) = current {
+            tiled_windows.push(window);
+            if let Some(client) = self.clients.get(&window) {
+                current = self.next_tiled(client.next, &monitor);
+            } else {
+                break;
+            }
+        }
+
+        let target_idx = tiled_windows.iter().position(|&w| w == target_window);
+        let target_idx = match target_idx {
+            Some(idx) => idx,
+            None => return Ok(()),
+        };
+
+        let tiled_count = tiled_windows.len();
+        if tiled_count <= visible_count {
+            if animate && monitor.scroll_offset != 0 {
+                self.scroll_animation.start(monitor.scroll_offset, 0, &self.animation_config);
+            } else if let Some(m) = self.monitors.get_mut(monitor_index) {
+                m.scroll_offset = 0;
+            }
+            return Ok(());
+        }
+
+        let available_width = monitor.screen_width - 2 * outer_gap as i32;
+        let total_inner_gaps = inner_gap as i32 * (visible_count - 1) as i32;
+        let window_width = (available_width - total_inner_gaps) / visible_count as i32;
+        let scroll_step = window_width + inner_gap as i32;
+
+        let total_width = tiled_count as i32 * window_width + (tiled_count - 1) as i32 * inner_gap as i32;
+        let max_scroll = (total_width - available_width).max(0);
+
+        let target_scroll = (target_idx as i32) * scroll_step;
+        let new_offset = target_scroll.clamp(0, max_scroll);
+
+        let current_offset = monitor.scroll_offset;
+        if current_offset != new_offset {
+            if animate {
+                self.scroll_animation.start(current_offset, new_offset, &self.animation_config);
+            } else {
+                if let Some(m) = self.monitors.get_mut(monitor_index) {
+                    m.scroll_offset = new_offset;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn toggle_bar(&mut self) -> WmResult<()> {
         if let Some(monitor) = self.monitors.get_mut(self.selected_monitor) {
             monitor.show_bar = !monitor.show_bar;
@@ -748,6 +915,59 @@ impl WindowManager {
 
     fn get_layout_symbol(&self) -> String {
         let layout_name = self.layout.name();
+
+        if layout_name == "scrolling" {
+            if let Some(monitor) = self.monitors.get(self.selected_monitor) {
+                let visible_count = if monitor.num_master > 0 {
+                    monitor.num_master as usize
+                } else {
+                    2
+                };
+
+                let mut tiled_count = 0;
+                let mut current = self.next_tiled(monitor.clients_head, monitor);
+                while let Some(window) = current {
+                    tiled_count += 1;
+                    if let Some(client) = self.clients.get(&window) {
+                        current = self.next_tiled(client.next, monitor);
+                    } else {
+                        break;
+                    }
+                }
+
+                if tiled_count > 0 {
+                    let outer_gap = if self.gaps_enabled {
+                        self.config.gap_outer_vertical
+                    } else {
+                        0
+                    };
+                    let inner_gap = if self.gaps_enabled {
+                        self.config.gap_inner_vertical
+                    } else {
+                        0
+                    };
+
+                    let available_width = monitor.screen_width - 2 * outer_gap as i32;
+                    let total_inner_gaps = inner_gap as i32 * (visible_count.min(tiled_count) - 1) as i32;
+                    let window_width = if tiled_count <= visible_count {
+                        (available_width - total_inner_gaps) / tiled_count as i32
+                    } else {
+                        (available_width - inner_gap as i32 * (visible_count - 1) as i32) / visible_count as i32
+                    };
+
+                    let scroll_step = window_width + inner_gap as i32;
+                    let first_visible = if scroll_step > 0 {
+                        (monitor.scroll_offset / scroll_step) + 1
+                    } else {
+                        1
+                    };
+                    let last_visible = (first_visible + visible_count as i32 - 1).min(tiled_count as i32);
+
+                    return format!("[{}-{}/{}]", first_visible, last_visible, tiled_count);
+                }
+            }
+        }
+
         self.config
             .layout_symbols
             .iter()
@@ -1044,6 +1264,12 @@ impl WindowManager {
                 if let Arg::Int(delta) = arg {
                     self.inc_num_master(*delta)?;
                 }
+            }
+            KeyAction::ScrollLeft => {
+                self.scroll_layout(-1)?;
+            }
+            KeyAction::ScrollRight => {
+                self.scroll_layout(1)?;
             }
             KeyAction::None => {}
         }
@@ -2047,7 +2273,15 @@ impl WindowManager {
             )?;
         }
 
-        self.attach_aside(window, client_monitor);
+        if self.layout.name() == "scrolling" {
+            if let Some(selected) = self.monitors.get(client_monitor).and_then(|m| m.selected_client) {
+                self.attach_after(window, selected, client_monitor);
+            } else {
+                self.attach_aside(window, client_monitor);
+            }
+        } else {
+            self.attach_aside(window, client_monitor);
+        }
         self.attach_stack(window, client_monitor);
         self.windows.push(window);
 
@@ -2066,6 +2300,23 @@ impl WindowManager {
 
         let final_tags = self.clients.get(&window).map(|c| c.tags).unwrap_or(tags);
         let _ = self.save_client_tag(window, final_tags);
+
+        if client_monitor == self.selected_monitor
+            && let Some(old_sel) = self
+                .monitors
+                .get(self.selected_monitor)
+                .and_then(|m| m.selected_client)
+        {
+            self.unfocus(old_sel, false)?;
+        }
+
+        if let Some(m) = self.monitors.get_mut(client_monitor) {
+            m.selected_client = Some(window);
+        }
+
+        if self.layout.name() == "scrolling" {
+            self.scroll_to_window(window, true)?;
+        }
 
         self.apply_layout()?;
         self.connection.map_window(window)?;
@@ -2403,6 +2654,11 @@ impl WindowManager {
         };
 
         self.focus(Some(next_window))?;
+
+        if self.layout.name() == "scrolling" {
+            self.scroll_to_window(next_window, true)?;
+        }
+
         self.restack()?;
         self.update_tab_bars()?;
 
@@ -3644,6 +3900,7 @@ impl WindowManager {
                 let monitor_y = monitor.screen_y;
                 let monitor_width = monitor.screen_width;
                 let monitor_height = monitor.screen_height;
+                let scroll_offset = monitor.scroll_offset;
 
                 let mut visible: Vec<Window> = Vec::new();
                 let mut current = self.next_tiled(monitor.clients_head, monitor);
@@ -3697,7 +3954,12 @@ impl WindowManager {
                         adjusted_height = hint_height as u32;
                     }
 
-                    let adjusted_x = geometry.x_coordinate + monitor_x;
+                    let is_scrolling = self.layout.name() == "scrolling";
+                    let adjusted_x = if is_scrolling {
+                        geometry.x_coordinate + monitor_x - scroll_offset
+                    } else {
+                        geometry.x_coordinate + monitor_x
+                    };
                     let adjusted_y = geometry.y_coordinate + monitor_y + bar_height as i32;
 
                     if let Some(client) = self.clients.get_mut(window) {
@@ -4295,6 +4557,20 @@ impl WindowManager {
         }
     }
 
+    fn attach_after(&mut self, window: Window, after_window: Window, monitor_index: usize) {
+        if let Some(after_client) = self.clients.get(&after_window) {
+            let old_next = after_client.next;
+            if let Some(new_client) = self.clients.get_mut(&window) {
+                new_client.next = old_next;
+            }
+            if let Some(after_client_mut) = self.clients.get_mut(&after_window) {
+                after_client_mut.next = Some(window);
+            }
+        } else {
+            self.attach(window, monitor_index);
+        }
+    }
+
     fn attach_aside(&mut self, window: Window, monitor_index: usize) {
         let monitor = match self.monitors.get(monitor_index) {
             Some(m) => m,
@@ -4447,6 +4723,9 @@ impl WindowManager {
                 let visible = self.visible_windows_on_monitor(self.selected_monitor);
                 if let Some(&new_win) = visible.last() {
                     self.focus(Some(new_win))?;
+                    if self.layout.name() == "scrolling" {
+                        self.scroll_to_window(new_win, true)?;
+                    }
                 } else if let Some(monitor) = self.monitors.get_mut(self.selected_monitor) {
                     monitor.selected_client = None;
                 }

@@ -41,6 +41,8 @@ pub enum KeyAction {
     ShowKeybindOverlay,
     SetMasterFactor,
     IncNumMaster,
+    ScrollLeft,
+    ScrollRight,
     None,
 }
 
